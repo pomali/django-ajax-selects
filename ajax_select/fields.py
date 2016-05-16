@@ -425,6 +425,13 @@ def plugin_options(lookup, channel_name, widget_plugin_options, initial):
     if po.get('html') is None:
         po['html'] = True
 
+    if po.get('cache') is None:
+        po['cache'] = False
+
+    if getattr(lookup, 'page_size', None) is not None:
+        po['page_size'] = lookup.page_size
+
+
     return {
         'plugin_options': mark_safe(json.dumps(po)),
         'data_plugin_options': force_escape(json.dumps(po))

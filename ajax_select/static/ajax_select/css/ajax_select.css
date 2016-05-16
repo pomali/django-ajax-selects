@@ -33,6 +33,12 @@ ul.ui-autocomplete {
   margin: 0;
   padding: 0;
   position: absolute;
+  max-height: 30em;
+  overflow-y: auto;
+  /* prevent horizontal scrollbar */
+  overflow-x: hidden;
+  /* add padding to account for vertical scrollbar */
+  padding-right: 20px;
 }
 ul.ui-autocomplete li {
   list-style-type: none;
