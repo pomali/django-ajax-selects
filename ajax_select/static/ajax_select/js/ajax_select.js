@@ -2,6 +2,9 @@
 
 (function($) {
 
+  /**
+   * Autocomplete Select
+   */
   $.fn.autocompleteselect = function(options) {
     return this.each(function() {
       var id = this.id,
@@ -43,7 +46,7 @@
       }
 
       options.select = receiveResult;
-      $text.autocomplete(options);
+      $text.autocomplete(options).on('focus', function(){$(this).autocomplete('search', $(this).val());});
 
       function reset() {
         if (options.initial) {
@@ -61,11 +64,15 @@
 
       $this.closest('form').on('reset', reset);
 
-      $this.bind('didAddPopup', function(event, pk, repr) {
+      $this.on('didAddPopup', function(event, pk, repr) {
         receiveResult(null, {item: {pk: pk, repr: repr}});
       });
     });
   };
+
+  /**
+   * Autocomplete Select Multiple
+   */
 
   $.fn.autocompleteselectmultiple = function(options) {
     return this.each(function() {
@@ -126,11 +133,15 @@
 
       $this.closest('form').on('reset', reset);
 
-      $this.bind('didAddPopup', function(event, pk, repr) {
+      $this.on('didAddPopup', function(event, pk, repr) {
         receiveResult(null, {item: {pk: pk, repr: repr}});
       });
     });
   };
+
+  /**
+   * Utility functions 
+   */
 
   function addAutoComplete (inp, callback) {
     var $inp = $(inp),
@@ -159,7 +170,8 @@
   // allow html in the results menu
   // https://github.com/scottgonzalez/jquery-ui-extensions
   var proto = $.ui.autocomplete.prototype,
-      initSource = proto._initSource;
+      initSource = proto._initSource,
+      origSearch = proto.search;
 
   function filter(array, term) {
     var matcher = new RegExp($.ui.autocomplete.escapeRegex(term), 'i');
@@ -177,6 +189,38 @@
       } else {
         initSource.call(this);
       }
+
+     if (this.options.page_size != null){
+      var original_source = this.source;
+      this.source = function(request, response){
+        var term = request.term;
+        if (this.page == null || this.previousSearch != term ){
+          this.page = 1;
+          this.allData = null;
+          this.isResultsEnd = false;
+        }
+        if (this.isResultsEnd){
+          return response(this.allData);
+        }
+        var self = this;
+        request.page = this.page;
+        var modified_response = function modified_response(newData){
+          if (newData.length < self.options.page_size){
+            self.isResultsEnd = true;
+            console.log("Results end");
+          } else { 
+            self.isResultsEnd = false
+          }
+          if (self.allData != null){
+            self.allData = self.allData.concat(newData);
+          } else{
+            self.allData = newData;
+          }
+          response(self.allData);
+        }
+        original_source.call(this, request, modified_response);
+      }
+     }
     },
     _renderItem: function(ul, item) {
       var body = this.options.html ? item.match: item.label;
@@ -184,8 +228,59 @@
         .data('item.autocomplete', item)
         .append($('<a></a>')[this.options.html ? 'html' : 'text' ](body))
         .appendTo(ul);
+    },
+    _renderMenu: function(ul, items){
+      /* inspired by http://jsfiddle.net/LesignButure/EVsye/ */
+      var self = this;
+      var $ul = $(ul);
+      if (this.options.page_size != null){
+        function isScrollbarBottom(container) {
+          return (container.scrollTop() >= container[0].scrollHeight - container.outerHeight());
+        };
+
+        $ul.off('scroll');
+        if (self.isResultsEnd !== true){
+          $ul.on('scroll', function(){
+            if(isScrollbarBottom($ul)){
+              // download new page??
+              //  
+              if (self.isResultsEnd){
+                return;
+              }
+              self.search(); //this?
+
+              //refresh menu
+              //self.menu.deactivate();
+              self.menu.refresh();
+              // size and position menu
+              ul.show();
+              self._resizeMenu();
+              ul.position($.extend({ of: self.element }, self.options.position));
+              if (self.options.autoFocus) {
+                self.menu.next(new $.Event("mouseover"));
+              }
+            }
+          });
+        }
+      }
+
+      $.each( items, function( index, item ) {
+        self._renderItemData( ul, item );
+      } );
+    },
+    search: function(value, event){
+      if (this.page != null && !this.isResultsEnd){
+        this.page++;
+      }
+      console.log(this.page);
+      var v = this._value()
+      origSearch.call(this, value, event);
+      if (v !=null){
+        this.previousSearch = v;
+      }
     }
   });
+
 
   /*  the popup handler
     requires RelatedObjects.js which is part of the django admin js
@@ -197,7 +292,7 @@
   };
 
   // activate any on page
-  $(window).bind('init-autocomplete', function() {
+  $(window).on('init-autocomplete', function() {
 
     $('input[data-ajax-select=autocomplete]').each(function(i, inp) {
       addAutoComplete(inp, function($inp, opts) {
@@ -235,3 +330,4 @@
   });
 
 })(window.jQuery);
+// vim: set ts=2 sw=0 tw=0 et :

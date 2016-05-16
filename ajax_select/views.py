@@ -5,6 +5,7 @@ from django.contrib.admin import site
 from django.contrib.admin.options import IS_POPUP_VAR
 from django.http import HttpResponse
 from django.utils.encoding import force_text
+from django.core.paginator import Paginator, EmptyPage
 import json
 
 
@@ -23,21 +24,32 @@ def ajax_lookup(request, channel):
     # it should come in as GET unless global $.ajaxSetup({type:"POST"}) has been set
     # in which case we'll support POST
     if request.method == "GET":
-        # we could also insist on an ajax request
-        if 'term' not in request.GET:
-            return HttpResponse('')
-        query = request.GET['term']
+        r = request.GET
     else:
-        if 'term' not in request.POST:
-            return HttpResponse('')  # suspicious
-        query = request.POST['term']
+        r = request.POST
+    # we could also insist on an ajax request
+    if 'term' not in r:
+        return HttpResponse('')  # suspicious
+    query = r['term']
+    try:
+        page = int(r['page'])
+    except (KeyError, ValueError):
+        page = None
 
     lookup = registry.get(channel)
     if hasattr(lookup, 'check_auth'):
         lookup.check_auth(request)
 
     if len(query) >= getattr(lookup, 'min_length', 1):
-        instances = lookup.get_query(query, request)
+        qs = lookup.get_query(query, request)
+        if page:
+            try:
+                paginator = Paginator(qs, getattr(lookup, 'page_size', 20))
+                instances = paginator.page(page)
+            except EmptyPage:
+                instances = []
+        else:
+            instances = qs
     else:
         instances = []
 
