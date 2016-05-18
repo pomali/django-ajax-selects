@@ -234,7 +234,7 @@
       var self = this;
       var $ul = $(ul);
       if (this.options.page_size != null){
-        function isScrollbarBottom(container) {
+        var isScrollbarBottom = function (container) {
           return (container.scrollTop() >= container[0].scrollHeight - container.outerHeight());
         };
 
